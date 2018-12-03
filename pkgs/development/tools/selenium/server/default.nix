@@ -4,8 +4,8 @@
 with stdenv.lib;
 
 let
-  minorVersion = "3.6";
-  patchVersion = "0";
+  minorVersion = "3.9";
+  patchVersion = "1";
   arch = if stdenv.system == "x86_64-linux" then "amd64"
          else if stdenv.system == "i686-linux" then "i386"
          else "";
