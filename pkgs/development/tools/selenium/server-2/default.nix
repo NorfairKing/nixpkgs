@@ -16,7 +16,7 @@ in stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "http://selenium-release.storage.googleapis.com/${minorVersion}/selenium-server-standalone-${version}.jar";
-    sha256 = "19rvsp717k2przaxbi25zv8fy28zvvy211xkjsissycx7bkd7aq9";
+    sha256 = "1y3w1c2173vn2yqy6047l6lxmg919xyi19ccw4my7cm5bhx6vkhw";
   };
 
   unpackPhase = "true";
