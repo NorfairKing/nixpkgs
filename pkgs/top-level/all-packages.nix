@@ -8444,6 +8444,7 @@ with pkgs;
   sauce-connect = callPackage ../development/tools/sauce-connect { };
 
   selenium-server-standalone = callPackage ../development/tools/selenium/server { };
+  selenium-server-standalone2 = callPackage ../development/tools/selenium/server-2 { };
 
   selendroid = callPackage ../development/tools/selenium/selendroid { };
 
