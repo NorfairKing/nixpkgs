@@ -12,26 +12,30 @@ let
     else if false == value then "no"
     else toString value;
 
-  fpmCfgFile = pool: poolOpts: pkgs.writeText "phpfpm-${pool}.conf" ''
-    [global]
-    ${concatStringsSep "\n" (mapAttrsToList (n: v: "${n} = ${toStr v}") cfg.settings)}
-    ${optionalString (cfg.extraConfig != null) cfg.extraConfig}
-
+  poolCfgFileSection = pool: poolOpts: ''
     [${pool}]
     ${concatStringsSep "\n" (mapAttrsToList (n: v: "${n} = ${toStr v}") poolOpts.settings)}
     ${concatStringsSep "\n" (mapAttrsToList (n: v: "env[${n}] = ${toStr v}") poolOpts.phpEnv)}
     ${optionalString (poolOpts.extraConfig != null) poolOpts.extraConfig}
   '';
+  fpmCfgFile = pools: pkgs.writeText "phpfpm.conf" ''
+    [global]
+    ${concatStringsSep "\n" (mapAttrsToList (n: v: "${n} = ${toStr v}") cfg.settings)}
+    ${optionalString (cfg.extraConfig != null) cfg.extraConfig}
 
-  phpIni = poolOpts: pkgs.runCommand "php.ini" {
-    inherit (poolOpts) phpPackage phpOptions;
+    ${concatStringsSep "\n" (mapAttrsToList poolCfgFileSection pools)}
+  '';
+
+  phpIni = pools: pkgs.runCommand "php.ini" {
+    phpPackage = pkgs.php;
+    # inherit (poolOpts) phpPackage phpOptions;
     preferLocalBuild = true;
     nixDefaults = ''
       sendmail_path = "/run/wrappers/bin/sendmail -t -i"
     '';
     passAsFile = [ "nixDefaults" "phpOptions" ];
   } ''
-    cat ${poolOpts.phpPackage}/etc/php.ini $nixDefaultsPath $phpOptionsPath > $out
+    cat ${pkgs.php}/etc/php.ini $nixDefaultsPath $phpOptionsPath > $out
   '';
 
   poolOpts = { name, ... }:
@@ -255,15 +259,14 @@ in {
       wantedBy = [ "multi-user.target" ];
     };
 
-    systemd.services = mapAttrs' (pool: poolOpts:
-      nameValuePair "phpfpm-${pool}" {
-        description = "PHP FastCGI Process Manager service for pool ${pool}";
+    systemd.services."phpfpm" = {
+        description = "PHP FastCGI Process Manager service";
         after = [ "network.target" ];
         wantedBy = [ "phpfpm.target" ];
         partOf = [ "phpfpm.target" ];
         serviceConfig = let
-          cfgFile = fpmCfgFile pool poolOpts;
-          iniFile = phpIni poolOpts;
+          cfgFile = fpmCfgFile cfg.pools;
+          iniFile = phpIni cfg.pools;
         in {
           Slice = "phpfpm.slice";
           PrivateDevices = true;
@@ -273,13 +276,12 @@ in {
           # XXX: We need AF_NETLINK to make the sendmail SUID binary from postfix work
           RestrictAddressFamilies = "AF_UNIX AF_INET AF_INET6 AF_NETLINK";
           Type = "notify";
-          ExecStart = "${poolOpts.phpPackage}/bin/php-fpm -y ${cfgFile} -c ${iniFile}";
+          ExecStart = "${pkgs.php}/bin/php-fpm -y ${cfgFile} -c ${iniFile}";
           ExecReload = "${pkgs.coreutils}/bin/kill -USR2 $MAINPID";
           RuntimeDirectory = "phpfpm";
           RuntimeDirectoryPreserve = true; # Relevant when multiple processes are running
           Restart = "always";
         };
-      }
-    ) cfg.pools;
+      };
   };
 }
